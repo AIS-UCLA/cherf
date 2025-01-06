@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ormolu
+        name: ormolu
+        entry: ormolu -i
+        language: system
+        files: '\.hs$'
