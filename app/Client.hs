@@ -1,9 +1,10 @@
 module Client where
 
 import Control.Concurrent (forkIO)
+import Control.Exception (throw)
 import qualified Control.Exception as E
 import Control.Monad (forever, liftM2, void)
-import Control.Retry (recoverAll, retryPolicyDefault)
+import Control.Retry (recoverAll, retryPolicy, retryPolicyDefault)
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
@@ -42,7 +43,7 @@ punch _ = putStrLn "usage: cherf client punch <addr> <port> <remote>"
 advertise :: [String] -> IO ()
 advertise [host, port] = withSocketsDo $ do
   addr <- resolve host port
-  forever $ E.bracketOnError (open addr) close (\sock -> void $ forkIO (doHandshake host port sock >>= handlePunch ListenRequest sock))
+  forever $ E.bracketOnError (open addr) close (\sock -> doHandshake host port sock >>= handlePunch ListenRequest sock)
   where
     open addr = E.bracketOnError (openSocket addr) close $ \sock -> do
       setSockOptValue sock Linger $ SockOptValue (StructLinger {sl_onoff = 1, sl_linger = 0})
@@ -84,13 +85,18 @@ handlePunch pkt sock ctx = do
       bye ctx
       localAddr <- getSocketName sock
       close sock
-      sock <- case addr of
-        SockAddrInet {} -> socket AF_INET Stream defaultProtocol
-        SockAddrInet6 {} -> socket AF_INET6 Stream defaultProtocol
-      bind sock localAddr
-      recoverAll retryPolicyDefault (\_ -> connect sock addr)
-      void $ send sock $ C8.pack "hello"
-      tmp <- recv sock 10
-      print tmp
+      void $ forkIO (tunnel addr localAddr)
     Error code -> putStrLn $ "error: " ++ show code
     _ -> putStrLn "unimplemented"
+
+tunnel :: SockAddr -> SockAddr -> IO ()
+tunnel remoteAddr localAddr = do
+  sock <- case remoteAddr of
+    SockAddrInet {} -> socket AF_INET Stream defaultProtocol
+    SockAddrInet6 {} -> socket AF_INET6 Stream defaultProtocol
+    SockAddrUnix {} -> error "unreachable"
+  bind sock localAddr
+  recoverAll retryPolicyDefault (\_ -> connect sock remoteAddr)
+  void $ send sock $ C8.pack "hello"
+  tmp <- recv sock 10
+  print tmp
