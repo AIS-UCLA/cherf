@@ -6,10 +6,10 @@ import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Data.Binary (decode, encode)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Base64 as B64
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import Data.Time
 import qualified Data.X509 as X
 import Data.X509.CertificateStore
 import Data.X509.Validation (Fingerprint (Fingerprint), getFingerprint)
@@ -93,24 +93,35 @@ handleConn sem sock peer = do
 
 process :: ServerState -> Context -> SockAddr -> Packet -> IO ()
 process sem ctx peer (ConnectRequest fingerprint) = do
+  now <- getZonedTime
+  let time = formatTime defaultTimeLocale "%b %e %T" now
   remote <- lookupFingerprint sem (Fingerprint fingerprint)
   case remote of
-    Just (addr, m) ->
+    Just (addr, m) -> do
+      putStrLn (time ++ " connect request from " ++ show peer ++ " to " ++ show addr)
       let pkt = encode (ConnectData addr)
-       in sendData ctx pkt >> putMVar m peer
-    Nothing ->
+       in sendData ctx pkt
+      putMVar m peer
+    Nothing -> do
+      putStrLn (time ++ " connect request from " ++ show peer ++ " failed (no peer)")
       let pkt = encode (Error NoSuchFingerprint)
        in sendData ctx pkt
-  putStrLn "I send reply, did you get?"
+  bye ctx
 process sem ctx peer ListenRequest = do
+  now <- getZonedTime
+  let time = formatTime defaultTimeLocale "%b %e %T" now
   chain <- getClientCertificateChain ctx
   case chain of
     Just (X.CertificateChain [cert]) -> do
       let fp = getFingerprint cert X.HashSHA1
       m <- insertFingerprint sem fp peer
-      print ((B64.encode . (\(Fingerprint x) -> x)) fp)
-      E.finally (forever $ takeMVar m >>= \remote -> sendData ctx (encode (ConnectData remote))) (deleteFingerprint sem fp)
-    _ ->
-      let pkt = encode (Error InvalidCert)
-       in sendData ctx pkt >> bye ctx
+      putStrLn (time ++ " advertising request from " ++ show peer ++ " fp=" ++ show fp)
+      remote <- takeMVar m
+      sendData ctx (encode (ConnectData remote))
+      bye ctx
+      deleteFingerprint sem fp
+    _ -> do
+      putStrLn (time ++ " advertising request from " ++ show peer ++ " failed (invalid cert)")
+      sendData ctx (encode (Error InvalidCert))
+      bye ctx
 process _ ctx _ _ = bye ctx

@@ -1,10 +1,9 @@
 module Client where
 
 import qualified Control.Exception as E
-import Control.Monad (liftM2, void, (>=>))
+import Control.Monad (liftM2, void)
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.List.NonEmpty as NE
