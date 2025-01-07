@@ -6,6 +6,7 @@ import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Data.Binary (decode, encode)
 import Data.ByteString (ByteString)
+import Data.ByteString.Builder (byteStringHex, toLazyByteString)
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
@@ -41,6 +42,9 @@ lookupFingerprint (ServerState m) (Fingerprint fp) = do
   state <- takeMVar m
   putMVar m state
   return (Map.lookup fp state)
+
+showFingerprint :: Fingerprint -> String
+showFingerprint (Fingerprint fp) = (show . toLazyByteString . byteStringHex) fp
 
 server :: [String] -> IO ()
 server [port] = withSocketsDo $ do
@@ -87,7 +91,6 @@ handleConn sem sock peer = do
               }
         }
   handshake ctx
-  putStrLn "connection accepted"
   pkt <- decode . fromStrict <$> recvData ctx
   process sem ctx peer pkt
 
@@ -115,7 +118,7 @@ process sem ctx peer ListenRequest = do
     Just (X.CertificateChain [cert]) -> do
       let fp = getFingerprint cert X.HashSHA1
       m <- insertFingerprint sem fp peer
-      putStrLn (time ++ " advertising request from " ++ show peer ++ " fp=" ++ show fp)
+      putStrLn (time ++ " advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp)
       remote <- takeMVar m
       sendData ctx (encode (ConnectData remote))
       bye ctx
