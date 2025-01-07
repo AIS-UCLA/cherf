@@ -1,7 +1,9 @@
 module Client where
 
+import Control.Concurrent (forkIO)
 import qualified Control.Exception as E
-import Control.Monad (liftM2, void)
+import Control.Monad (forever, liftM2, void)
+import Control.Retry (recoverAll, retryPolicyDefault)
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
@@ -40,7 +42,7 @@ punch _ = putStrLn "usage: cherf client punch <addr> <port> <remote>"
 advertise :: [String] -> IO ()
 advertise [host, port] = withSocketsDo $ do
   addr <- resolve host port
-  E.bracket (open addr) close (\sock -> doHandshake host port sock >>= handlePunch ListenRequest sock)
+  forever $ E.bracketOnError (open addr) close (\sock -> void $ forkIO (doHandshake host port sock >>= handlePunch ListenRequest sock))
   where
     open addr = E.bracketOnError (openSocket addr) close $ \sock -> do
       setSockOptValue sock Linger $ SockOptValue (StructLinger {sl_onoff = 1, sl_linger = 0})
@@ -86,7 +88,7 @@ handlePunch pkt sock ctx = do
         SockAddrInet {} -> socket AF_INET Stream defaultProtocol
         SockAddrInet6 {} -> socket AF_INET6 Stream defaultProtocol
       bind sock localAddr
-      connect sock addr
+      recoverAll retryPolicyDefault (\_ -> connect sock addr)
       void $ send sock $ C8.pack "hello"
       tmp <- recv sock 10
       print tmp
