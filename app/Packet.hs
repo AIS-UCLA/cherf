@@ -6,7 +6,7 @@ import Data.Binary
 import Data.ByteString (ByteString)
 import Network.Socket
 
-data ErrorCode = NoSuchFingerprint | InvalidCert deriving (Enum)
+data ErrorCode = NoSuchFingerprint | InvalidCert deriving (Enum, Show)
 
 data Packet
   = ConnectRequest ByteString

@@ -70,13 +70,18 @@ server _ = putStrLn "usage: cherf server <port>"
 
 handleConn :: ServerState -> Socket -> SockAddr -> IO ()
 handleConn sem sock peer = do
-  store <- fromJust <$> readCertificateStore "~/.cherf/store"
+  Right cred <- credentialLoadX509 "./server.crt" "./server.key"
+  Just store <- readCertificateStore "./server.crt" -- FIXME
   ctx <-
     contextNew
       sock
       defaultParamsServer
         { serverWantClientCert = True,
-          serverCACertificates = listCertificates store,
+          serverShared =
+            defaultShared
+              { sharedCredentials = Credentials [cred],
+                sharedCAStore = store
+              },
           serverHooks =
             defaultServerHooks
               { onClientCertificate = \_ -> return CertificateUsageAccept
@@ -100,7 +105,7 @@ process sem ctx peer ListenRequest = do
   chain <- getClientCertificateChain ctx
   case chain of
     Just (X.CertificateChain [cert]) -> do
-      let fp = getFingerprint cert X.HashSHA256
+      let fp = getFingerprint cert X.HashSHA1
       m <- insertFingerprint sem fp peer
       print ((B64.encode . (\(Fingerprint x) -> x)) fp)
       E.finally (forever $ takeMVar m >>= \remote -> sendData ctx (encode (ConnectData remote))) (deleteFingerprint sem fp)

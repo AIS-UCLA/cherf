@@ -2,3 +2,7 @@ dist
 dist-*
 cabal-dev
 *.o
+
+*.crt
+*.key
+*.csr
