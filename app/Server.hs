@@ -10,7 +10,6 @@ import qualified Data.ByteString.Base64 as B64
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
 import qualified Data.X509 as X
 import Data.X509.CertificateStore
 import Data.X509.Validation (Fingerprint (Fingerprint), getFingerprint)
@@ -88,6 +87,7 @@ handleConn sem sock peer = do
               }
         }
   handshake ctx
+  putStrLn "connection accepted"
   pkt <- decode . fromStrict <$> recvData ctx
   process sem ctx peer pkt
 
@@ -101,6 +101,7 @@ process sem ctx peer (ConnectRequest fingerprint) = do
     Nothing ->
       let pkt = encode (Error NoSuchFingerprint)
        in sendData ctx pkt
+  putStrLn "I send reply, did you get?"
 process sem ctx peer ListenRequest = do
   chain <- getClientCertificateChain ctx
   case chain of

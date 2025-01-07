@@ -1,6 +1,7 @@
 module Client where
 
 import qualified Control.Exception as E
+import Control.Monad ((>=>))
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
@@ -24,24 +25,24 @@ resolve host port =
 punch :: [String] -> IO ()
 punch [host, port, remote] = withSocketsDo $ do
   addr <- resolve host port
-  E.bracket (open addr) close (handleConn host port remote)
+  E.bracket (open addr) close (doHandshake host port >=> handleConn remote)
   where
     open addr = E.bracketOnError (openSocket addr) close $ \sock -> do
       connect sock $ addrAddress addr
       return sock
 punch _ = putStrLn "usage: cherf client punch <addr> <port> <remote>"
 
-handleConn :: HostName -> ServiceName -> String -> Socket -> IO ()
-handleConn serverName port remote sock = do
+doHandshake :: HostName -> ServiceName -> Socket -> IO Context
+doHandshake serverName port sock = do
   Just store <- readCertificateStore "./server.crt"
   ctx <-
     contextNew
       sock
-      (defaultParamsClient "cherf.ais-ucla.org" (C8.pack port))
+      (defaultParamsClient "cherf.ais-ucla.org" (C8.pack port)) -- FIXME
         { clientHooks =
             defaultClientHooks
               { onCertificateRequest = \_ -> do
-                  cred <- credentialLoadX509 "./client.crt" "./client.key"
+                  cred <- credentialLoadX509 "./sullivan.crt" "./sullivan.key"
                   case cred of
                     Left _ -> return Nothing
                     Right c -> return (Just c)
@@ -52,22 +53,33 @@ handleConn serverName port remote sock = do
               }
         }
   handshake ctx
+  return ctx
+
+handleConn :: String -> Context -> IO ()
+handleConn remote ctx = do
   fp <- B.readFile $ "./" ++ remote ++ ".sha1"
   sendData ctx $ encode (ConnectRequest fp)
   pkt <- decode . fromStrict <$> recvData ctx
   case pkt of
     ConnectData _ -> putStrLn "we got data!"
     Error code -> putStrLn $ "error: " ++ show code
-    _ -> putStrLn "failed"
+    _ -> putStrLn "unimplemented"
 
 advertise :: [String] -> IO ()
 advertise [host, port] = withSocketsDo $ do
   addr <- resolve host port
-  E.bracket (open addr) close handleAdvertise
+  E.bracket (open addr) close (doHandshake host port >=> handleAdvertise)
   where
     open addr = E.bracketOnError (openSocket addr) close $ \sock -> do
       connect sock $ addrAddress addr
       return sock
+advertise _ = putStrLn "usage: cherf client advertise <addr> <port>"
 
-handleAdvertise :: Socket -> IO ()
-handleAdvertise _ = return ()
+handleAdvertise :: Context -> IO ()
+handleAdvertise ctx = do
+  sendData ctx $ encode ListenRequest
+  pkt <- decode . fromStrict <$> recvData ctx
+  case pkt of
+    ConnectData _ -> putStrLn "got addr"
+    Error code -> putStr $ "error: " ++ show code
+    _ -> putStrLn "unimplemented"
