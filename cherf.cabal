@@ -68,7 +68,9 @@ executable cherf
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base, binary, bytestring, containers, crypton-x509, crypton-x509-store, crypton-x509-validation, network, retry, tls, time
+    build-depends:    base, binary, bytestring, containers,
+                      crypton-x509, crypton-x509-store, crypton-x509-validation,
+                      network, retry, splice, tls, time
 
     -- Directories containing source files.
     hs-source-dirs:   app
