@@ -62,7 +62,7 @@ executable cherf
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules:    Server, Client, Packet
+    other-modules:    Server, Client, Packet, Punch
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -71,6 +71,8 @@ executable cherf
     build-depends:    base, binary, bytestring, containers,
                       crypton-x509, crypton-x509-store, crypton-x509-validation,
                       network, retry, splice, tls, time
+    if os(freebsd)
+      cpp-options:    -DFREEBSD
 
     -- Directories containing source files.
     hs-source-dirs:   app
