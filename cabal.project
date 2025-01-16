@@ -1,7 +1,7 @@
 source-repository-package
   type: git
   location: https://github.com/ais-ucla/splice.git
-  tag: 802d15791ce28d13c9dd9cf713ff38fb80ccca41
+  tag: 6f3d15eed9ba3cce99267524c0c24181b0b7be5d
 
 packages: ./cherf.cabal
 

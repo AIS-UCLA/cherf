@@ -5,7 +5,7 @@
 
 module Punch (punch) where
 import Control.Exception (catch)
-import Control.Retry (retrying, constantDelay)
+import Control.Retry (retrying, constantDelay, limitRetries)
 import Data.Maybe (isNothing)
 import Network.Socket
 import System.IO.Error (IOError)
@@ -13,10 +13,10 @@ import System.IO.Error (IOError)
 
 punch :: SockAddr -> SockAddr -> IO Socket
 punch remote local = do
-  s <- retrying (constantDelay 250) (const $ return . isNothing) (\_ -> tryPunch remote local)
+  s <- retrying (constantDelay 250 <> limitRetries 10) (const $ return . isNothing) (\_ -> tryPunch remote local)
   case s of
     Nothing -> error "failed punch"
-    Just sock -> return sock
+    Just sock -> putStrLn "success" >> return sock
 
 tryPunch :: SockAddr -> SockAddr -> IO (Maybe Socket)
 tryPunch remote local = do

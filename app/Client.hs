@@ -114,16 +114,15 @@ tunnelClient :: Int16 -> Socket -> IO ()
 tunnelClient port dst = do
   sendAll dst $ C8.toStrict (encode port)
   sendAll dst $ C8.pack "deadbeef"
-  --srcIn <- mkSocket 0
-  --srcOut <- mkSocket 1
-  --void . forkIO $! splice 1024 (srcIn, Nothing) (dst, Nothing)
-  --void $! splice 1024 (dst, Nothing) (srcOut, Nothing)
+  void . forkIO $! forever (B.getContents >>= sendAll dst)
+  void $! forever (recv dst 4096 >>= B.putStr)
 
 
 tunnelServer :: Socket -> IO ()
 tunnelServer src = do
   port <- (decode . fromStrict <$> recv src 2 :: IO Int16)
   addr <- resolve "localhost" (show port)
+  putStrLn ("incoming connection to: " ++ show addr)
   dst <- openSocket addr
   connect dst $ addrAddress addr
   void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
