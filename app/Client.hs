@@ -7,6 +7,7 @@ import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Lazy (fromStrict)
+import Data.Int (Int16)
 import qualified Data.List.NonEmpty as NE
 import Data.X509.CertificateStore (readCertificateStore)
 import Network.Socket
@@ -16,7 +17,6 @@ import Network.TLS
 import Packet
 import Punch
 import System.Environment (getEnv)
-import Data.Int (Int16)
 
 client :: [String] -> IO ()
 client ("ssh" : t) = ssh t
@@ -116,7 +116,6 @@ tunnelClient port dst = do
   sendAll dst $ C8.pack "deadbeef"
   void . forkIO $! forever (B.getContents >>= sendAll dst)
   void $! forever (recv dst 4096 >>= B.putStr)
-
 
 tunnelServer :: Socket -> IO ()
 tunnelServer src = do
