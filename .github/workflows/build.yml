@@ -28,6 +28,8 @@ jobs:
           install: autotools
       - uses: haskell-actions/setup@v2
         id: setup
+        with:
+          ghc-version: '9.6'
       - run: cabal build all --dry-run
       - uses: actions/cache@v4
         id: cache
