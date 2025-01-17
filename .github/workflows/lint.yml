@@ -5,15 +5,18 @@ on:
     branches: [main]
 
 jobs:
-  pre_commit:
+  ormolu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-      - name: Install dependencies
-        run: |
-          cabal install ormolu
-          pip install pre-commit
-      - run: pre-commit run --all-files --show-diff-on-failure
-
+      - uses: haskell-actions/run-ormolu@v16
+  hlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: haskell-actions/hlint-setup@v2
+      - uses: haskell-actions/hlint-run@v2
+        with:
+          path: app/
+          fail-on: warning
 

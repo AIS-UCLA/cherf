@@ -6,3 +6,8 @@ repos:
         entry: ormolu -i
         language: system
         files: '\.hs$'
+      - id: hlint
+        name: hlint
+        entry: hlint
+        language: system
+        files: '\.hs$'
