@@ -21,6 +21,11 @@ jobs:
             os: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          update: true
+          install: autotools
       - uses: haskell-actions/setup@v2
         id: setup
       - run: cabal build all --dry-run
