@@ -9,14 +9,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        - target: linux-x86_64
-          os: ubuntu-latest
-        - target: osx-x86_64
-          os: macos-13
-        - target: osx-arm64
-          os: macos-latest
-        - target: windows-x86_64
-          os: windows-latest
+        include:
+          - target: linux-x86_64
+            os: ubuntu-latest
+          - target: osx-x86_64
+            os: macos-13
+          - target: osx-arm64
+            os: macos-latest
+          - target: windows-x86_64
+            os: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
