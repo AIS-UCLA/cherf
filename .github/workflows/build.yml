@@ -1,0 +1,47 @@
+name: build
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        - target: linux-x86_64
+          os: ubuntu-latest
+        - target: osx-x86_64
+          os: macos-13
+        - target: osx-arm64
+          os: macos-latest
+        - target: windows-x86_64
+          os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: haskell-actions/setup@v2
+        id: setup
+      - run: cabal build all --dry-run
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ runner.os }}-plan-${{ hashFiles('**/plan.json') }}
+      - uses: actions/cache/save@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - run: |
+          cabal build all
+          cabal install --install-method=copy --installdir=./bin
+      - uses: haskell-actions/parse-cabal-file@v1
+        id: cabal_file
+        with:
+          cabal_file: cherf.cabal
+      - run: cp bin/cherf bin/cherf-${{ steps.cabal_file.outputs.version }}-${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cherf-binary-${{ matrix.target ]}
+          path: bin/cherf-*
+
