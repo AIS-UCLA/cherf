@@ -1,10 +1,10 @@
-module Punch (punch) where
+module Helpers (punch, logMesg) where
 
 import Control.Exception (catch)
 import Control.Retry (constantDelay, limitRetries, retrying)
 import Data.Maybe (isNothing)
+import Data.Time (defaultTimeLocale, formatTime, getZonedTime)
 import Network.Socket
-import System.IO.Error (IOError)
 
 punch :: SockAddr -> SockAddr -> IO Socket
 punch remote local = do
@@ -21,9 +21,15 @@ tryPunch remote local = do
     SockAddrUnix {} -> error "unreachable"
   setSockOptValue sock Linger $ SockOptValue (StructLinger {sl_onoff = 1, sl_linger = 0})
   bind sock local
-  putStrLn "setting sock opt"
   whenSupported KeepInit $ setSocketOption sock KeepInit 1
   whenSupported UserTimeout $ setSocketOption sock UserTimeout 1000
   let handler :: IOError -> IO (Maybe Socket)
-      handler _ = close sock >> return Nothing
+      handler e = logMesg ("connection failed: " ++ show e) >> close sock >> return Nothing
+  logMesg "attempting connection"
   catch (connect sock remote >> return (Just sock)) handler
+
+logMesg :: String -> IO ()
+logMesg m = do
+  now <- getZonedTime
+  let time = formatTime defaultTimeLocale "%b %e %T" now
+  putStrLn $ "[" ++ time ++ "] " ++ m

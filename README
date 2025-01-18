@@ -10,7 +10,7 @@ run signaling server:
 
 attach stdio to remote port
 
-  cherf client attach <server_addr> <server_port> <remote_name> <remote_port>
+  cherf client attach <remote_port> <server_addr> <server_port> <remote_name>
 
 advertise for connections on signaling server:
 
