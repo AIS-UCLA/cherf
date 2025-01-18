@@ -2,3 +2,72 @@ cherf - CHARGED PERFORATOR.
 
 "Peforates" NAT tables for p2p communication using a signaling server.
 
+Usage:
+
+run signaling server:
+
+  cherf server <port>
+
+attach stdio to remote port
+
+  cherf client attach <server_addr> <server_port> <remote_name> <remote_port>
+
+advertise for connections on signaling server:
+
+  cherf client advertise <server_addr> <server_port>
+
+for usage with ProxyCommand (with ProxyUseFdpass yes):
+
+  cherf client ssh <server_addr> <server_port> <remote_name>
+
+
+File structure:
+
+~/.cherf
+  ├── cert          -- your PEM X059 certificate, signed by server if client
+  ├── key           -- your PEM X509 associated private key
+  ├── store         -- concatenated list of trusted CA certificates (PEM X509)
+  └── <server>.sha1 -- raw SHA1 fingerprint of server
+
+Protocol specification:
+
+This tool is a TCP holepuncher, and is designed to work on all NAT types other
+than symmetric NAT. There are two communication protocols utilized to accheive
+this goal: the signaling protocol and the p2p protocol. Both are designed to
+run overtop TCP. First, the signaling protocol:
+
+The first byte transmitted in each packet specifies the type of the packet. The
+types of packets are as follows:
+
+ConnectRequest:
+
+  + 0 -- + 1 -------------- 8 + 9 ------- X +
+  | 0x00 | fingerprint length | fingerprint |
+  + ---- + ------------------ + ----------- +
+
+ListenRequest:
+
+  + 0 -- +
+  | 0x01 |
+  + ---- +
+
+ConnectData:
+
+  + 0 -- + 1 -- + 2 -- + 3 ------- 6 + 7 ------- 10 +
+  | 0x02 | 0x04 | 0x00 | port nunber | IPv4 address |
+  + ---- + ---- + ---- + ----------- + ------------ +
+                          OR
+  + 0 -- + 1 -- + 2 -- + 3 ------- 6 + 7 ------- 22 +
+  | 0x02 | 0x06 | 0x00 | port number | IPv6 address |
+  + ---- + ---- + ---- + ----------- + ------------ +
+
+Error:
+
+  + 0 -- + 1 -------- +
+  | 0xFF | error code |
+  + ---- + ---------- +
+
+The p2p protocol is much simpler: once a TCP connection is establised, the
+client's first byte sent specifies the port to connect to. Then bidirectional
+communication is established on said port.
+
