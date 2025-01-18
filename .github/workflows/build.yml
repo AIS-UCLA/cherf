@@ -26,6 +26,8 @@ jobs:
         with:
           update: true
           install: autotools
+      - run: brew install automake
+        if: runner.os == 'macOS'
       - uses: haskell-actions/setup@v2
         id: setup
         with:
