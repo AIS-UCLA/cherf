@@ -9,7 +9,6 @@ import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Lazy (fromStrict)
 import Data.Int (Int16)
 import qualified Data.List.NonEmpty as NE
-import Data.X509.CertificateStore (readCertificateStore)
 import Helpers
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
@@ -17,6 +16,7 @@ import Network.Socket.Splice (splice)
 import Network.TLS
 import Packet
 import System.Environment (getEnv)
+import System.X509
 
 client :: [String] -> IO ()
 client ("ssh" : t) = attach tunnelSSH t
@@ -50,7 +50,7 @@ advertise _ = putStrLn "usage: cherf client advertise <addr> <port>"
 doHandshake :: HostName -> ServiceName -> Socket -> IO Context
 doHandshake serverName port sock = do
   configDir <- liftM2 (++) (getEnv "HOME") (pure "/.cherf/")
-  Just store <- readCertificateStore (configDir ++ "store")
+  store <- getSystemCertificateStore
   ctx <-
     contextNew
       sock
@@ -105,3 +105,4 @@ tunnelServer src = do
   connect dst $ addrAddress addr
   void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
   void . forkIO $! splice 1024 (dst, Nothing) (src, Nothing)
+  logMesg $ "connection established on port " ++ port ++ " from " ++ getPeerName src
