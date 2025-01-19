@@ -7,7 +7,7 @@ source-repository-package
   type: git
   location: https://github.com/christopherm99/network.git
   tag: 1b01106e8fc7bb5aa6961b63a43a94a5a6714332
-  post-checkout-command: autoreconf -i
+  post-checkout-command: bash -lc "autoreconf -i"
 
 packages: ./cherf.cabal
 

@@ -105,4 +105,5 @@ tunnelServer src = do
   connect dst $ addrAddress addr
   void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
   void . forkIO $! splice 1024 (dst, Nothing) (src, Nothing)
-  logMesg $ "connection established on port " ++ port ++ " from " ++ getPeerName src
+  name <- getPeerName src
+  logMesg $ "connection established on port " ++ show port ++ " from " ++ show name
