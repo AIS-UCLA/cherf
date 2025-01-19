@@ -32,7 +32,7 @@ jobs:
         id: setup
         with:
           ghc-version: '9.6'
-          cabal-update: runner.os != 'Windows'
+          cabal-update: ${{ runner.os != 'Windows' }}
       - shell: msys2 {0}
         run: cabal update
         if: runner.os == 'Windows'
