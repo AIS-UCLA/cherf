@@ -76,13 +76,13 @@ handle pkt sock tunnel ctx = do
   pkt <- decode . fromStrict <$> recvData ctx
   case pkt of
     ConnectData addr -> do
-      logMesgLn $ "found peer: " ++ show addr
+      logMesg $ "found peer: " ++ show addr
       bye ctx
       localAddr <- getSocketName sock
       close sock
       punch addr localAddr >>= tunnel
-    Error code -> logMesgLn $ "error: " ++ show code
-    _ -> logMesgLn "unimplemented"
+    Error code -> logMesg $ "error: " ++ show code
+    _ -> logMesg "unimplemented"
 
 tunnelSSH :: Socket -> IO ()
 tunnelSSH sock = do
@@ -105,10 +105,10 @@ tunnelServer src = do
     E.handle ((\_ -> return ()) :: IOError -> IO ()) $
       E.bracket
         (openSocket addr)
-        (\sock -> close sock >> logMesgLn ("connection closed on port " ++ show port ++ " from " ++ show name))
+        (\sock -> close sock >> logMesg ("connection closed on port " ++ show port ++ " from " ++ show name))
         ( \dst -> do
             connect dst $ addrAddress addr
-            logMesgLn $ "connection established on port " ++ show port ++ " from " ++ show name
+            logMesg $ "connection established on port " ++ show port ++ " from " ++ show name
             void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
             splice 1024 (dst, Nothing) (src, Nothing)
         )

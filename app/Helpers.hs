@@ -1,4 +1,4 @@
-module Helpers (punch, logMesg, logMesgLn) where
+module Helpers (punch, logMesg) where
 
 import Control.Exception (catch)
 import Control.Retry (constantDelay, limitRetries, retrying)
@@ -8,7 +8,7 @@ import Network.Socket
 
 punch :: SockAddr -> SockAddr -> IO Socket
 punch remote local = do
-  logMesg "attempting connection "
+  logMesgNoLn "attempting connection "
   s <- retrying (constantDelay 100000 <> limitRetries 10) (const $ return . isNothing) (\_ -> tryPunch remote local)
   case s of
     Nothing -> error "failed punch"
@@ -26,14 +26,14 @@ tryPunch remote local = do
   whenSupported UserTimeout $ setSocketOption sock UserTimeout 1000
   let handler :: IOError -> IO (Maybe Socket)
       handler _ = close sock >> return Nothing
-  logMesg "."
-  catch (connect sock remote >> logMesg "\n" >> return (Just sock)) handler
+  putStr "."
+  catch (connect sock remote >> return (Just sock)) handler
 
 logMesg :: String -> IO ()
-logMesg m = do
+logMesg m = logMesgNoLn $ m ++ "\n"
+
+logMesgNoLn :: String -> IO ()
+logMesgNoLn m = do
   now <- getZonedTime
   let time = formatTime defaultTimeLocale "%b %e %T" now
   putStr $ "[" ++ time ++ "] " ++ m
-
-logMesgLn :: String -> IO ()
-logMesgLn m = logMesg $ m ++ "\n"
