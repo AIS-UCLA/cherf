@@ -87,13 +87,14 @@ handle pkt sock tunnel ctx = do
 tunnelSSH :: Socket -> IO ()
 tunnelSSH sock = do
   sendAll sock $ C8.toStrict (encode (22 :: Int16))
+  logMesg "connection initiated, passing fd"
   out <- mkSocket 1
   withFdSocket sock (sendFd out)
 
 tunnelClient :: Int16 -> Socket -> IO ()
 tunnelClient port dst = do
   sendAll dst $ C8.toStrict (encode port)
-  void . forkIO $! forever (B.getContents >>= sendAll dst)
+  void . forkIO $! forever (C8.getLine >>= sendAll dst)
   void $! forever (recv dst 4096 >>= B.putStr)
 
 tunnelServer :: Socket -> IO ()
@@ -101,6 +102,7 @@ tunnelServer src = do
   port <- (decode . fromStrict <$> recv src 2 :: IO Int16)
   addr <- resolve "localhost" (show port)
   name <- getPeerName src
+  logMesg $ "received request port=" ++ show port ++ " from " ++ show name
   void . forkIO $!
     E.handle ((\_ -> return ()) :: IOError -> IO ()) $
       E.bracket
