@@ -34,7 +34,7 @@ Protocol specification:
 This tool is a TCP holepuncher, and is designed to work on all NAT types other
 than symmetric NAT. There are two communication protocols utilized to acheive
 this goal: the signaling protocol and the p2p protocol. Both are designed to
-run overtop TCP. First, the signaling protocol:
+run overtop TCP with TLS. First, the signaling protocol:
 
 The first byte transmitted in each packet specifies the type of the packet. The
 types of packets are as follows:
@@ -45,11 +45,18 @@ ConnectRequest:
   | 0x00 | fingerprint length | fingerprint |
   + ---- + ------------------ + ----------- +
 
+    A ConnectRequest is sent when a client would like to connect to a remote,
+    specified by the given (SHA1) fingerprint.
+
 ListenRequest:
 
   + 0 -- +
   | 0x01 |
   + ---- +
+
+    A ListenRequest is sent by a (future) remote to advertise its availability
+    for connections. The signaling server will generate its SHA1 fingerprint
+    from the TLS key exchange.
 
 ConnectData:
 
@@ -61,13 +68,30 @@ ConnectData:
   | 0x02 | 0x06 | 0x00 | port number | IPv6 address |
   + ---- + ---- + ---- + ----------- + ------------ +
 
+    ConnectData is sent from the signaling server to the two clients that will
+    be connected to each other. ConnectData of the first type (type 4) is sent
+    when the corresponding client has an IPv4 address, while ConnectData of the
+    second type (type 6) is sent when the corresponding clinet has an IPv6
+    address. The 3rd byte is currently unused, and will always be zero.
+
 Error:
 
   + 0 -- + 1 -------- +
   | 0xFF | error code |
   + ---- + ---------- +
 
+    An Error message is sent whenever an error occurs. The corresponding codes
+    are:
+      * NoSuchFingerprint -- Sent when a client requests the SHA1 fingerprint
+        that is not matched in the signaling server's database
+      * InvalidCert -- Sent when a client sends a malformed certificate.
+
 The p2p protocol is much simpler: once a TCP connection is establised, the
 client's first byte sent specifies the port to connect to. Then bidirectional
 communication is established on said port.
+
+Advanced features:
+
+The advertising client uses the splice(2) facility on Linux, and the SO_SPLICE
+socket option on FreeBSD to perform zerocopy socket splicing.
 
