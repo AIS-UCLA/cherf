@@ -2,6 +2,10 @@ name: build
 on:
   push:
     branches: [main]
+  workflow_call:
+    outputs:
+      version:
+        value: ${{ jobs.build.outputs.version }}
 
 jobs:
   build:
@@ -17,25 +21,14 @@ jobs:
             os: macos-13
           - target: osx-arm64
             os: macos-latest
-          - target: windows-x86_64
-            os: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: msys2/setup-msys2@v2
-        if: runner.os == 'Windows'
-        with:
-          update: true
-          install: autotools
       - run: brew install automake
         if: runner.os == 'macOS'
       - uses: haskell-actions/setup@v2
         id: setup
         with:
           ghc-version: '9.6'
-          cabal-update: ${{ runner.os != 'Windows' }}
-      - shell: msys2 {0}
-        run: ${{ steps.setup.outputs.cabal-exe }} update
-        if: runner.os == 'Windows'
       - run: cabal build all --dry-run
       - uses: actions/cache@v4
         id: cache
@@ -59,4 +52,6 @@ jobs:
         with:
           name: cherf-binary-${{ matrix.target }}
           path: bin/cherf-*
+    outputs:
+      version: ${{ steps.cabal_file.outputs.version }}
 
