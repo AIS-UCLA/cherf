@@ -11,9 +11,8 @@ import Data.ByteString.Lazy (fromStrict)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.X509 as X
-import Data.X509.CertificateStore
 import Data.X509.Validation (Fingerprint (Fingerprint), getFingerprint)
-import Helpers (logMesg)
+import Helpers (logMesgLn)
 import Network.Socket
 import Network.TLS
 import Packet
@@ -102,12 +101,12 @@ process sem ctx peer (ConnectRequest fingerprint) = do
   remote <- lookupFingerprint sem (Fingerprint fingerprint)
   case remote of
     Just (addr, m) -> do
-      logMesg $ "connect request from " ++ show peer ++ " to " ++ show addr
+      logMesgLn $ "connect request from " ++ show peer ++ " to " ++ show addr
       let pkt = encode (ConnectData addr)
        in sendData ctx pkt
       putMVar m peer
     Nothing -> do
-      logMesg $ "connect request from " ++ show peer ++ " failed (no peer)"
+      logMesgLn $ "connect request from " ++ show peer ++ " failed (no peer)"
       let pkt = encode (Error NoSuchFingerprint)
        in sendData ctx pkt
   bye ctx
@@ -117,7 +116,7 @@ process sem ctx peer ListenRequest = do
     Just (X.CertificateChain [cert]) -> do
       let fp = getFingerprint cert X.HashSHA1
       m <- insertFingerprint sem fp peer
-      logMesg $ "advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp
+      logMesgLn $ "advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp
       remote <- takeMVar m
       sendData ctx (encode (ConnectData remote))
       bye ctx
