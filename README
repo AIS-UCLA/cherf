@@ -32,7 +32,7 @@ File structure:
 Protocol specification:
 
 This tool is a TCP holepuncher, and is designed to work on all NAT types other
-than symmetric NAT. There are two communication protocols utilized to accheive
+than symmetric NAT. There are two communication protocols utilized to acheive
 this goal: the signaling protocol and the p2p protocol. Both are designed to
 run overtop TCP. First, the signaling protocol:
 
