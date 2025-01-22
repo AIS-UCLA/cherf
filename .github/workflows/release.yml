@@ -2,7 +2,7 @@ name: release
 on: workflow_dispatch
 
 jobs:
-  ci:
+  build:
     uses: ./.github/workflows/build.yml
 
   release:
