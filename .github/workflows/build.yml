@@ -50,6 +50,9 @@ jobs:
         with:
           cabal_file: cherf.cabal
       - run: cp bin/cherf bin/cherf-${{ steps.cabal_file.outputs.version }}-${{ matrix.target }}
+        if: runner.os != 'Windows'
+      - run: cp bin/cherf.exe bin/cherf-${{ steps.cabal_file.outputs.version }}-${{ matrix.target }}
+        if: runner.os == 'Windows'
       - uses: actions/upload-artifact@v4
         with:
           name: cherf-binary-${{ matrix.target }}

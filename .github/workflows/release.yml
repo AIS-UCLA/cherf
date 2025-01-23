@@ -42,5 +42,5 @@ jobs:
             bin/cherf-${{ env.VERSION }}-linux-x86_64
             bin/cherf-${{ env.VERSION }}-osx-x86_64
             bin/cherf-${{ env.VERSION }}-osx-arm64
-            bin/cherf-${{ env.VERSION }}-windows-x86_64
+            bin/cherf-${{ env.VERSION }}-windows-x86_64.exe
           fail_on_unmatched_files: true
