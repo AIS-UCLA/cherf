@@ -21,6 +21,8 @@ jobs:
             os: macos-13
           - target: osx-arm64
             os: macos-latest
+          - target: windows-x86_64
+            os: windows-latest
     steps:
       - uses: actions/checkout@v4
       - run: brew install automake

@@ -27,6 +27,10 @@ jobs:
         with:
           name: cherf-binary-osx-arm64
           path: ./bin/
+      - uses: actions/download-artifact@v4
+        with:
+          name: cherf-binary-windows-x86_64
+          path: ./bin/
       - run: git log --oneline --decorate > /tmp/changelog
       - uses: softprops/action-gh-release@v2
         with:
@@ -38,4 +42,5 @@ jobs:
             bin/cherf-${{ env.VERSION }}-linux-x86_64
             bin/cherf-${{ env.VERSION }}-osx-x86_64
             bin/cherf-${{ env.VERSION }}-osx-arm64
+            bin/cherf-${{ env.VERSION }}-windows-x86_64
           fail_on_unmatched_files: true
