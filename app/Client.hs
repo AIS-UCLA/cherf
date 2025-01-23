@@ -111,6 +111,8 @@ tunnelServer src = do
         ( \dst -> do
             connect dst $ addrAddress addr
             logMesg $ "connection established on port " ++ show port ++ " from " ++ show name
-            void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
-            splice 1024 (dst, Nothing) (src, Nothing)
+            void . forkIO $! forever (recv src 4096 >>= sendAll dst)
+            void $! forever (recv dst 4096 >>= sendAll src)
+            -- void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
+            -- splice 1024 (dst, Nothing) (src, Nothing)
         )
