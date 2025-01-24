@@ -3,10 +3,9 @@ module Main where
 import Client (client)
 import Server (server)
 import System.Environment (getArgs)
-import System.IO (BufferMode (NoBuffering), hSetBuffering, stdout)
 
 main :: IO ()
-main = hSetBuffering stdout NoBuffering >> getArgs >>= parse
+main = getArgs >>= parse
 
 parse :: [String] -> IO ()
 parse ("client" : t) = client t

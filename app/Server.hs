@@ -3,7 +3,7 @@ module Server (server) where
 import Control.Concurrent (forkFinally)
 import Control.Concurrent.MVar
 import qualified Control.Exception as E
-import Control.Monad (forever, liftM2, void)
+import Control.Monad (forever, void)
 import Data.Binary (decode, encode)
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder (byteStringHex, toLazyByteString)
@@ -13,12 +13,15 @@ import qualified Data.Map.Strict as Map
 import qualified Data.X509 as X
 import Data.X509.CertificateStore (makeCertificateStore)
 import Data.X509.Validation (Fingerprint (Fingerprint), getFingerprint)
-import Helpers (logMesg)
+import Helpers (getConfigDir, logMesg)
 import Network.Socket
 import Network.TLS
 import Packet
-import System.Environment (getEnv)
 
+-- ServerState stores a map of fingerprints to their associated addresses
+-- The associated MVar for each fingerprint is updated when a ConnectRequest
+-- is received.
+-- TODO: Allow multiple addresses per fingerprint
 newtype ServerState = ServerState (MVar (Map.Map ByteString (SockAddr, MVar SockAddr)))
 
 newServerState :: IO ServerState
@@ -33,6 +36,7 @@ insertFingerprint (ServerState m) (Fingerprint fp) addr = do
   putMVar m $ Map.insert fp (addr, newM) state
   return newM
 
+-- Consumes a fingerprint from the state if it exists
 consumeFingerprint :: ServerState -> Fingerprint -> IO (Maybe (SockAddr, MVar SockAddr))
 consumeFingerprint (ServerState m) (Fingerprint fp) = do
   state <- takeMVar m
@@ -64,12 +68,12 @@ server [port] = withSocketsDo $ do
       state <- newServerState
       forever $
         E.bracketOnError (accept sock) (close . fst) $
-          \(conn, peer) -> void $ forkFinally (handleConn state conn peer) (const $ gracefulClose conn 5000)
+          \(conn, peer) -> void $ forkFinally (handleConn state conn peer) (const $ gracefulClose conn 5000) -- FIXME: client always sends RST
 server _ = putStrLn "usage: cherf server <port>"
 
 handleConn :: ServerState -> Socket -> SockAddr -> IO ()
 handleConn sem sock peer = do
-  configDir <- liftM2 (++) (getEnv "HOME") (pure "/.cherf/")
+  configDir <- getConfigDir
   Right cred <- credentialLoadX509 (configDir ++ "cert") (configDir ++ "key")
   ctx <-
     contextNew
@@ -79,7 +83,7 @@ handleConn sem sock peer = do
           serverShared =
             defaultShared
               { sharedCredentials = Credentials [cred],
-                sharedCAStore = makeCertificateStore [last . (\(X.CertificateChain c) -> c) . fst $ cred]
+                sharedCAStore = makeCertificateStore [last . (\(X.CertificateChain c) -> c) . fst $ cred] -- Only accept certificates signed by us
               },
           serverHooks =
             defaultServerHooks

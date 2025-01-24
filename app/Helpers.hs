@@ -1,33 +1,34 @@
-module Helpers (punch, logMesg) where
+module Helpers (punch, logMesg, getConfigDir) where
 
+import Control.Monad (liftM2)
 import Control.Monad.Catch (Handler (Handler))
 import Control.Retry (recovering, retryPolicyDefault)
 import Data.Time (defaultTimeLocale, formatTime, getZonedTime)
 import Network.Socket
-import System.IO (hPutStr, stderr)
+import System.Environment (getEnv)
+import System.IO (hPutStrLn, stderr)
 import System.IO.Error (isDoesNotExistError)
 
+getConfigDir :: IO String
+getConfigDir = liftM2 (++) (getEnv "HOME") (pure "/.cherf/") -- TODO: fix on Windows
+
 punch :: SockAddr -> SockAddr -> IO Socket
-punch remote local = do
-  logMesg $ "attempting connection to " ++ show remote
-  recovering
-    retryPolicyDefault
-    [const $ Handler $ return . isDoesNotExistError]
-    ( const $ do
-        sock <- case remote of
-          SockAddrInet {} -> socket AF_INET Stream defaultProtocol
-          SockAddrInet6 {} -> socket AF_INET6 Stream defaultProtocol
-          SockAddrUnix {} -> error "unreachable"
-        bind sock local
-        connect sock remote
-        return sock
-    )
+punch remote local =
+  logMesg ("attempting connection to " ++ show remote)
+    >> recovering
+      retryPolicyDefault
+      [const $ Handler $ return . isDoesNotExistError]
+      ( const $ do
+          sock <- case remote of
+            SockAddrInet {} -> socket AF_INET Stream defaultProtocol
+            SockAddrInet6 {} -> socket AF_INET6 Stream defaultProtocol
+            SockAddrUnix {} -> error "unreachable"
+          bind sock local
+          connect sock remote
+          return sock
+      )
 
 logMesg :: String -> IO ()
-logMesg m = logMesgNoLn $ m ++ "\n"
-
-logMesgNoLn :: String -> IO ()
-logMesgNoLn m = do
-  now <- getZonedTime
-  let time = formatTime defaultTimeLocale "%b %e %T" now
-  hPutStr stderr $ "[" ++ time ++ "] " ++ m
+logMesg m = do
+  time <- formatTime defaultTimeLocale "%b %e %T" <$> getZonedTime
+  hPutStrLn stderr $ "[" ++ time ++ "] " ++ m
