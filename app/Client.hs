@@ -1,6 +1,6 @@
 module Client where
 
-import Control.Concurrent (forkIO, newQSem, signalQSem, waitQSem)
+import Control.Concurrent (forkFinally, forkIO, newQSem, signalQSem, waitQSem)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Data.Binary (decode, encode)
@@ -42,7 +42,7 @@ attach _ _ = putStrLn "usage: cherf client <attach port|ssh> <addr> <port> <remo
 advertise :: [String] -> IO ()
 advertise [host, port] = withSocketsDo $ do
   qs <- newQSem 4
-  forever $ E.bracket_ (waitQSem qs) (signalQSem qs) $ E.bracketOnError (resolve host port >>= open) close (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)
+  forever $ waitQSem qs >> forkFinally (E.bracketOnError (resolve host port >>= open) close (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)) (const $ signalQSem qs)
 advertise _ = putStrLn "usage: cherf client advertise <addr> <port>"
 
 doHandshake :: HostName -> ServiceName -> Socket -> IO Context
@@ -102,17 +102,16 @@ tunnelServer src = do
   addr <- resolve "localhost" port
   name <- show <$> getPeerName src
   logMesg $ "received request port=" ++ port ++ " from " ++ show name
-  void . forkIO $!
-    E.handle ((\_ -> return ()) :: IOError -> IO ()) $
-      E.bracket
-        (openSocket addr)
-        (\sock -> close sock >> logMesg ("connection closed on port " ++ port ++ " from " ++ name))
-        ( \dst -> do
-            connect dst $ addrAddress addr
-            logMesg $ "connection established on port " ++ port ++ " from " ++ name
-            void . forkIO $! forever (recv src 4096 >>= sendAll dst)
-            void $! forever (recv dst 4096 >>= sendAll src)
-            -- TODO: use splice
-            -- void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
-            -- splice 1024 (dst, Nothing) (src, Nothing)
-        )
+  E.handle ((\_ -> return ()) :: IOError -> IO ()) $
+    E.bracket
+      (openSocket addr)
+      (\sock -> close sock >> logMesg ("connection closed on port " ++ port ++ " from " ++ name))
+      ( \dst -> do
+          connect dst $ addrAddress addr
+          logMesg $ "connection established on port " ++ port ++ " from " ++ name
+          void . forkIO $! forever (recv src 4096 >>= sendAll dst)
+          void $! forever (recv dst 4096 >>= sendAll src)
+          -- TODO: use splice
+          -- void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
+          -- splice 1024 (dst, Nothing) (src, Nothing)
+      )
