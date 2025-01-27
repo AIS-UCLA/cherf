@@ -1,6 +1,6 @@
 module Client where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, newQSem, signalQSem, waitQSem)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Data.Binary (decode, encode)
@@ -40,7 +40,9 @@ attach tunn [host, port, remote] = withSocketsDo $ do
 attach _ _ = putStrLn "usage: cherf client <attach port|ssh> <addr> <port> <remote>"
 
 advertise :: [String] -> IO ()
-advertise [host, port] = withSocketsDo $ forever $ E.bracketOnError (resolve host port >>= open) close (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)
+advertise [host, port] = withSocketsDo $ do
+  qs <- newQSem 4
+  forever $ E.bracket_ (waitQSem qs) (signalQSem qs) $ E.bracketOnError (resolve host port >>= open) close (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)
 advertise _ = putStrLn "usage: cherf client advertise <addr> <port>"
 
 doHandshake :: HostName -> ServiceName -> Socket -> IO Context
