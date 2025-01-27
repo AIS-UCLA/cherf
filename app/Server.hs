@@ -8,6 +8,7 @@ import Data.Binary (decode, encode)
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder (byteStringHex, toLazyByteString)
 import Data.ByteString.Lazy (fromStrict)
+import Data.List (uncons)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.X509 as X
@@ -21,8 +22,7 @@ import Packet
 -- ServerState stores a map of fingerprints to their associated addresses
 -- The associated MVar for each fingerprint is updated when a ConnectRequest
 -- is received.
--- TODO: Allow multiple addresses per fingerprint
-newtype ServerState = ServerState (MVar (Map.Map ByteString (SockAddr, MVar SockAddr)))
+newtype ServerState = ServerState (MVar (Map.Map ByteString [(SockAddr, MVar SockAddr)]))
 
 newServerState :: IO ServerState
 newServerState = do
@@ -33,15 +33,16 @@ insertFingerprint :: ServerState -> Fingerprint -> SockAddr -> IO (MVar SockAddr
 insertFingerprint (ServerState m) (Fingerprint fp) addr = do
   state <- takeMVar m
   newM <- newEmptyMVar
-  putMVar m $ Map.insert fp (addr, newM) state
+  putMVar m $ Map.insertWith (++) fp [(addr, newM)] state
   return newM
 
 -- Consumes a fingerprint from the state if it exists
 consumeFingerprint :: ServerState -> Fingerprint -> IO (Maybe (SockAddr, MVar SockAddr))
 consumeFingerprint (ServerState m) (Fingerprint fp) = do
   state <- takeMVar m
-  putMVar m $ Map.delete fp state
-  return (Map.lookup fp state)
+  case state Map.!? fp >>= uncons of
+    Just (h, t) -> putMVar m (Map.insert fp t state) >> return (Just h)
+    Nothing -> putMVar m state >> return Nothing
 
 showFingerprint :: Fingerprint -> String
 showFingerprint (Fingerprint fp) = (show . toLazyByteString . byteStringHex) fp
