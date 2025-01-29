@@ -31,7 +31,7 @@ jobs:
         with:
           name: cherf-binary-windows-x86_64
           path: ./bin/
-      - run: git log --oneline --decorate > /tmp/changelog
+      - run: git log $(git describe --tags --abbrev=0)..HEAD --oneline > /tmp/changelog
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
