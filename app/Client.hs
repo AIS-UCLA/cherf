@@ -102,7 +102,7 @@ tunnelServer src = do
   addr <- resolve "localhost" port
   name <- show <$> getPeerName src
   logMesg $ "received request port=" ++ port ++ " from " ++ show name
-  E.handle ((\_ -> return ()) :: IOError -> IO ()) $
+  void $ forkIO $! E.handle ((\_ -> return ()) :: IOError -> IO ()) $
     E.bracket
       (openSocket addr)
       (\sock -> close sock >> logMesg ("connection closed on port " ++ port ++ " from " ++ name))
