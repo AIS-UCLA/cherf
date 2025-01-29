@@ -42,7 +42,7 @@ attach _ _ = putStrLn "usage: cherf client <attach port|ssh> <addr> <port> <remo
 advertise :: [String] -> IO ()
 advertise [host, port] = withSocketsDo $ do
   qs <- newQSem 4
-  forever $ waitQSem qs >> forkFinally (E.bracketOnError (resolve host port >>= open) close (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)) (const $ signalQSem qs)
+  forever $ waitQSem qs >> forkFinally (E.bracketOnError (resolve host port >>= open) (\s -> close s >> logMesg "error occured, retrying") (\sock -> doHandshake host port sock >>= handle ListenRequest sock tunnelServer)) (const $ signalQSem qs)
 advertise _ = putStrLn "usage: cherf client advertise <addr> <port>"
 
 doHandshake :: HostName -> ServiceName -> Socket -> IO Context

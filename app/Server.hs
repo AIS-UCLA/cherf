@@ -1,6 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Server (server) where
 
-import Control.Concurrent (forkFinally)
+import Control.Concurrent (forkFinally, throwTo)
 import Control.Concurrent.MVar
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
@@ -116,9 +118,14 @@ process sem ctx peer ListenRequest = do
       let fp = getFingerprint cert X.HashSHA1
       m <- insertFingerprint sem fp peer
       logMesg $ "advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp
-      remote <- takeMVar m
-      sendData ctx (encode (ConnectData remote))
-      bye ctx
+      tid <-
+        forkFinally
+          (takeMVar m >>= sendData ctx . encode . ConnectData)
+          ( \case
+              Left e -> logMesg $ "error handling advertising request from " ++ show peer ++ ": " ++ show e
+              Right _ -> return ()
+          )
+      E.catch (recvData ctx >> error "unexpected data") (throwTo tid :: E.SomeException -> IO ())
     _ -> do
       putStrLn $ "advertising request from " ++ show peer ++ " failed (invalid cert)"
       sendData ctx (encode (Error InvalidCert))
