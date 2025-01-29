@@ -102,16 +102,18 @@ tunnelServer src = do
   addr <- resolve "localhost" port
   name <- show <$> getPeerName src
   logMesg $ "received request port=" ++ port ++ " from " ++ show name
-  void $ forkIO $! E.handle ((\_ -> return ()) :: IOError -> IO ()) $
-    E.bracket
-      (openSocket addr)
-      (\sock -> close sock >> logMesg ("connection closed on port " ++ port ++ " from " ++ name))
-      ( \dst -> do
-          connect dst $ addrAddress addr
-          logMesg $ "connection established on port " ++ port ++ " from " ++ name
-          void . forkIO $! forever (recv src 4096 >>= sendAll dst)
-          void $! forever (recv dst 4096 >>= sendAll src)
-          -- TODO: use splice
-          -- void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
-          -- splice 1024 (dst, Nothing) (src, Nothing)
-      )
+  void $
+    forkIO $!
+      E.handle ((\_ -> return ()) :: IOError -> IO ()) $
+        E.bracket
+          (openSocket addr)
+          (\sock -> close sock >> logMesg ("connection closed on port " ++ port ++ " from " ++ name))
+          ( \dst -> do
+              connect dst $ addrAddress addr
+              logMesg $ "connection established on port " ++ port ++ " from " ++ name
+              void . forkIO $! forever (recv src 4096 >>= sendAll dst)
+              void $! forever (recv dst 4096 >>= sendAll src)
+              -- TODO: use splice
+              -- void . forkIO $! splice 1024 (src, Nothing) (dst, Nothing)
+              -- splice 1024 (dst, Nothing) (src, Nothing)
+          )
