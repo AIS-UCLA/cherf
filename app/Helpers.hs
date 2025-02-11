@@ -7,7 +7,7 @@ import Data.Time (defaultTimeLocale, formatTime, getZonedTime)
 import Network.Socket
 import System.Environment (getEnv)
 import System.IO (hPutStrLn, stderr)
-import System.IO.Error (isDoesNotExistError)
+import System.IO.Error (isAlreadyInUseError, isDoesNotExistError)
 
 getConfigDir :: IO String
 getConfigDir = liftM2 (++) (getEnv "HOME") (pure "/.cherf/") -- TODO: fix on Windows
@@ -17,7 +17,7 @@ punch remote local =
   logMesg ("attempting connection to " ++ show remote)
     >> recovering
       retryPolicyDefault
-      [const $ Handler $ return . isDoesNotExistError]
+      [const $ Handler $ return . isDoesNotExistError, const $ Handler $ return . isAlreadyInUseError]
       ( const $ do
           sock <- case remote of
             SockAddrInet {} -> socket AF_INET Stream defaultProtocol
