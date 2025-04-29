@@ -95,15 +95,15 @@ handleConn sem sock peer = do
         }
   handshake ctx
   pkt <- decode . fromStrict <$> recvData ctx
-  process sem ctx peer pkt
+  process [] sem ctx peer pkt
 
-process :: ServerState -> Context -> SockAddr -> Packet -> IO ()
-process sem ctx peer (ConnectRequest fingerprint) = do
+process :: [CherfOption] -> ServerState -> Context -> SockAddr -> Packet -> IO ()
+process opts sem ctx peer (ConnectRequest fingerprint) = do
   remote <- consumeFingerprint sem (Fingerprint fingerprint)
   case remote of
     Just (addr, m) -> do
       logMesg $ "connect request from " ++ show peer ++ " to " ++ show addr
-      let pkt = encode (ConnectData addr)
+      let pkt = encode (ConnectData addr opts)
        in sendData ctx pkt
       putMVar m peer
     Nothing -> do
@@ -111,7 +111,7 @@ process sem ctx peer (ConnectRequest fingerprint) = do
       let pkt = encode (Error NoSuchFingerprint)
        in sendData ctx pkt
   bye ctx
-process sem ctx peer ListenRequest = do
+process opts sem ctx peer ListenRequest = do
   chain <- getClientCertificateChain ctx
   case chain of
     Just (X.CertificateChain [cert]) -> do
@@ -120,7 +120,7 @@ process sem ctx peer ListenRequest = do
       logMesg $ "advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp
       tid <-
         forkFinally
-          (takeMVar m >>= sendData ctx . encode . ConnectData)
+          (takeMVar m >>= sendData ctx . encode . flip ConnectData opts)
           ( \case
               Left e -> logMesg $ "error handling advertising request from " ++ show peer ++ ": " ++ show e
               Right _ -> return ()
@@ -130,4 +130,5 @@ process sem ctx peer ListenRequest = do
       putStrLn $ "advertising request from " ++ show peer ++ " failed (invalid cert)"
       sendData ctx (encode (Error InvalidCert))
       bye ctx
-process _ ctx _ _ = bye ctx
+process opts sem ctx peer (ConnectOption opt) = recvData ctx >>= process (opt : opts) sem ctx peer . decode . fromStrict
+process _ _ ctx _ _ = bye ctx

@@ -2,19 +2,21 @@ module Client where
 
 import Control.Concurrent (forkFinally, forkIO, newQSem, signalQSem, waitQSem)
 import qualified Control.Exception as E
-import Control.Monad (forever, void)
+import Control.Monad (MonadPlus (mzero), forever, void)
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Lazy (fromStrict)
 import Data.Int (Int16)
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe (isJust)
 import Helpers
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
 import Network.Socket.Splice (splice)
 import Network.TLS
 import Packet
+import System.Environment (lookupEnv)
 import System.X509
 
 client :: [String] -> IO ()
@@ -71,17 +73,23 @@ doHandshake serverName port sock = do
 
 handle :: Packet -> Socket -> (Socket -> IO ()) -> Context -> IO ()
 handle pkt sock tunnel ctx = do
-  sendData ctx $ encode pkt
-  pkt <- decode . fromStrict <$> recvData ctx
-  case pkt of
-    ConnectData addr -> do
-      logMesg $ "found peer: " ++ show addr
-      bye ctx
-      localAddr <- getSocketName sock
-      close sock
-      punch addr localAddr >>= tunnel
-    Error code -> logMesg $ "error: " ++ show code
-    _ -> logMesg "unimplemented"
+  birthday <- lookupEnv "BIRTHDAY"
+  if isJust birthday
+    then
+      logMesg "using birthday mode" >> sendData ctx (encode $ ConnectOption BirthdayMode) >> sendData ctx (encode pkt)
+    else
+      sendData ctx (encode pkt)
+  pkt' <- decode . fromStrict <$> recvData ctx
+  (addr, punchFn) <- case pkt' of
+    ConnectData addr [] -> return (addr, if isJust birthday then bdayLocal else punch)
+    ConnectData addr [BirthdayMode] -> return (addr, bdayRemote)
+    Error code -> logMesg ("error: " ++ show code) >> mzero
+    _ -> logMesg "unimplemented" >> mzero
+  logMesg $ "found peer: " ++ show addr
+  bye ctx
+  localAddr <- getSocketName sock
+  close sock
+  punchFn addr localAddr >>= tunnel
 
 tunnelSSH :: Socket -> IO ()
 tunnelSSH sock = do
