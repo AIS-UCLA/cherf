@@ -11,7 +11,7 @@ data ErrorCode = NoSuchFingerprint | InvalidCert deriving (Enum, Show)
 data CherfOption = BirthdayMode deriving (Enum)
 
 instance Binary CherfOption where
-  put BirthdayMode = putWord8 1
+  put o = putWord8 $ (fromIntegral . fromEnum) o
   get = toEnum . fromIntegral <$> getWord8
 
 data Packet

@@ -24,14 +24,14 @@ import Packet
 -- ServerState stores a map of fingerprints to their associated addresses
 -- The associated MVar for each fingerprint is updated when a ConnectRequest
 -- is received.
-newtype ServerState = ServerState (MVar (Map.Map ByteString [(SockAddr, MVar SockAddr)]))
+newtype ServerState = ServerState (MVar (Map.Map ByteString [(SockAddr, MVar (SockAddr, [CherfOption]))]))
 
 newServerState :: IO ServerState
 newServerState = do
   m <- newMVar Map.empty
   return (ServerState m)
 
-insertFingerprint :: ServerState -> Fingerprint -> SockAddr -> IO (MVar SockAddr)
+insertFingerprint :: ServerState -> Fingerprint -> SockAddr -> IO (MVar (SockAddr, [CherfOption]))
 insertFingerprint (ServerState m) (Fingerprint fp) addr = do
   state <- takeMVar m
   newM <- newEmptyMVar
@@ -39,7 +39,7 @@ insertFingerprint (ServerState m) (Fingerprint fp) addr = do
   return newM
 
 -- Consumes a fingerprint from the state if it exists
-consumeFingerprint :: ServerState -> Fingerprint -> IO (Maybe (SockAddr, MVar SockAddr))
+consumeFingerprint :: ServerState -> Fingerprint -> IO (Maybe (SockAddr, MVar (SockAddr, [CherfOption])))
 consumeFingerprint (ServerState m) (Fingerprint fp) = do
   state <- takeMVar m
   case state Map.!? fp >>= uncons of
@@ -103,15 +103,15 @@ process opts sem ctx peer (ConnectRequest fingerprint) = do
   case remote of
     Just (addr, m) -> do
       logMesg $ "connect request from " ++ show peer ++ " to " ++ show addr
-      let pkt = encode (ConnectData addr opts)
+      let pkt = encode (ConnectData addr []) -- TODO: allow advertiser to send options
        in sendData ctx pkt
-      putMVar m peer
+      putMVar m (peer, opts)
     Nothing -> do
       logMesg $ "connect request from " ++ show peer ++ " failed (no peer)"
       let pkt = encode (Error NoSuchFingerprint)
        in sendData ctx pkt
   bye ctx
-process opts sem ctx peer ListenRequest = do
+process _ sem ctx peer ListenRequest = do
   chain <- getClientCertificateChain ctx
   case chain of
     Just (X.CertificateChain [cert]) -> do
@@ -120,7 +120,7 @@ process opts sem ctx peer ListenRequest = do
       logMesg $ "advertising request from " ++ show peer ++ " fp=" ++ showFingerprint fp
       tid <-
         forkFinally
-          (takeMVar m >>= sendData ctx . encode . flip ConnectData opts)
+          (takeMVar m >>= sendData ctx . encode . uncurry ConnectData)
           ( \case
               Left e -> logMesg $ "error handling advertising request from " ++ show peer ++ ": " ++ show e
               Right _ -> return ()
